@@ -9,6 +9,7 @@ snp_clustering for CPU time tests
 import time
 import os
 import sys
+import resource
 import numpy as np
 from sklearn.cluster import DBSCAN
 import h5py
@@ -18,18 +19,19 @@ EPS = np.linspace(0.05, 1, 20)
 MIN_SAMPLES = np.arange(2, 20, 1)
 
 
+def get_memory_usage():
+    """
+    get memory utilization
+    """
+    usage = resource.getrusage(resource.RUSAGE_SELF)
+    return (usage.ru_maxrss / 1024.0)  # Convert to kilobytes
+
+
 def prepare_data() -> np.ndarray:
     """
     data preparation function
     """
     matrix_file_path = os.path.join('data', 'chr3-1.ld.h5')
-    snp_file_path = os.path.join('data', 'chr3-1.snplist')
-    try:
-        print('Openning snplist file...')
-        with open(snp_file_path, 'r', encoding='utf-8') as snp_file:
-            snp_list = np.loadtxt(snp_file, dtype=str)
-    except FileNotFoundError:
-        sys.exit('Invalid snplist file path.')
     try:
         print('Openning matrix file...')
         with h5py.File(matrix_file_path, 'r') as corr_file:
@@ -40,11 +42,12 @@ def prepare_data() -> np.ndarray:
         sys.exit('Invalid matrix file path.')
 
     np.nan_to_num(corr_matrix, copy=False)
-    diss_matrix = 1 - np.abs(corr_matrix, out=corr_matrix)
-    diss_matrix = diss_matrix.reshape(len(snp_list), len(snp_list))
-    np.fill_diagonal(diss_matrix, 0)
-    print(diss_matrix)
-    return diss_matrix
+    np.abs(corr_matrix, out=corr_matrix)
+    corr_matrix = 1 - corr_matrix
+    np.fill_diagonal(corr_matrix, 0)
+    print(corr_matrix)
+    print(f"Memory usage: {get_memory_usage():.2f} KB")
+    return corr_matrix
 
 
 def dbscan_clustering(diss_matrix: np.ndarray,
@@ -54,13 +57,14 @@ def dbscan_clustering(diss_matrix: np.ndarray,
     perform a dbscan clustering
     """
     time_start = time.time()
-    db = DBSCAN(eps=eps,
-                min_samples=min_samples,
-                metric='precomputed',
-                n_jobs=-1).fit(diss_matrix)
+    DBSCAN(eps=eps,
+           min_samples=min_samples,
+           metric='precomputed',
+           n_jobs=-1).fit(diss_matrix)
     time_end = time.time()
     clusterization_time = time_end - time_start
     print('Time of clustering: ', clusterization_time)
+    print(f"Memory usage: {get_memory_usage():.2f} KB")
     return clusterization_time
 
 
@@ -75,3 +79,11 @@ if __name__ == '__main__':
                                           min_samples=min_samples_)
             time_list.append(iter_time)
             print('Total time is: ', sum(time_list))
+        mean = np.mean(time_list)
+        print(f'Mean for eps = {eps_}:', mean)
+
+        median = np.median(time_list)
+        print(f'Median for eps = {eps_}:', median)
+        # ddof=1 for sample standard deviation
+        std_dev = np.std(time_list, ddof=1)
+        print(f'Standart Deviation for eps = {eps_}:', std_dev)
