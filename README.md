@@ -10,3 +10,6 @@ A python code to compare different setups' performance on solving clusterization
 4. Run `python snp_clustering_cpu_test.py`
 
 The script will exctract and prepare the data. And then it will start clusterization with a parameter grid of 20x20. You will be able to see both 1 instance of clusterization and tottal time for all parameter pairs clusterizations.
+
+## Troubleshooting
+All was tested on Ubuntu 22.04.3 LTS, with Python 3.11.5
